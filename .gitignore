@@ -10,6 +10,8 @@ data/
 data_self/
 docker/
 ngc/
+eigen_pkg/
+sophus_pkg/
 
 .idea/
 # Byte-compiled / optimized / DLL files

@@ -100,9 +100,6 @@ class PoseCNN(nn.Module):
             self.classifier[3] = nn.Linear(256, 256)
         else:
             dim_fc = 4096
-            
-        print(self.features)
-        print(self.classifier)
 
         # freeze some layers
         if cfg.TRAIN.FREEZE_LAYERS:

@@ -2,7 +2,9 @@
 # This work is licensed under the NVIDIA Source Code License - Non-commercial. Full
 # text can be found in LICENSE.md
 
+from email.policy import strict
 import sys
+import pickle
 import ctypes
 import torch
 import time
@@ -11,6 +13,7 @@ from pprint import pprint
 from PIL import Image
 import glutils.glcontext as glcontext
 import OpenGL.GL as GL
+import pywavefront
 import cv2
 import numpy as np
 import platform
@@ -234,6 +237,7 @@ class YCBRenderer:
         textures = []
         start_time = time.time()
 
+        self.load_mesh(obj_path, scale)
         vertices, faces, materials, texture_paths = self.load_mesh(obj_path, scale)
         print('load mesh {:s} time:{:.3f}'.format(obj_path, time.time() - start_time))
 
@@ -338,15 +342,19 @@ class YCBRenderer:
 
     def load_mesh(self, path, scale=1.0):
         mesh_file = path.strip().split('/')[-1]  # for offset the robot mesh
-        scene = load(path) #load collada
+        materials_pywave = pywavefront.Wavefront(path, collect_faces=True, strict=True).mesh_list[0].materials[0] #load collada
+
+        scene = load(path)
+        
         offset = np.zeros(3)
         if self._offset_map is not None and mesh_file in self._offset_map:
             offset = self._offset_map[mesh_file]
-        return self.recursive_load(scene.rootnode, [], [], [], [], offset, scale, [[], [], []])
+        return self.recursive_load(scene.rootnode, materials_pywave, [], [], [], [], offset, scale, [[], [], []])
 
 
-    def recursive_load(self, node, vertices, faces, materials,
+    def recursive_load(self, node, materials_pywave, vertices, faces, materials,
                          texture_paths, offset, scale=1, repeated=[[], [], []]):
+
         if node.meshes:
             transform = node.transformation 
             for idx, mesh in enumerate(node.meshes):
@@ -355,17 +363,18 @@ class YCBRenderer:
                 mat = mesh.material
                 texture_path = False
                 if hasattr(mat, 'properties'):
-                    file = ('file', long(1)) if PYTHON2 else ('file', 1) 
+                    file = ('file', long(1)) if PYTHON2 else ('file', 1)
                     if file in mat.properties:
-                        texture_paths.append(mat.properties[file])
+                        texture_paths.append(materials_pywave.texture.path)
                         texture_path = True
                     else:
                         texture_paths.append('')
-                mat_diffuse = np.array(mat.properties['diffuse'])[:3] 
-                mat_specular = np.array(mat.properties['specular'])[:3] 
-                mat_ambient = np.array(mat.properties['ambient'])[:3] #phong shader
+
+                mat_diffuse = np.array(materials_pywave.diffuse)[:3] 
+                mat_specular = np.array(materials_pywave.specular)[:3] 
+                mat_ambient = np.array(materials_pywave.ambient)[:3] #phong shader
                 if 'shininess' in mat.properties:
-                    mat_shininess = max(mat.properties['shininess'], 1) #avoid the 0 shininess
+                    mat_shininess = max(materials_pywave.shininess, 1) #avoid the 0 shininess
                 else:
                     mat_shininess = 1
                 mesh_vertex = homotrans(transform,mesh.vertices) - offset #subtract the offset
@@ -384,7 +393,7 @@ class YCBRenderer:
                 faces.append(mesh.faces)
                 materials.append(np.hstack([mat_diffuse, mat_specular, mat_ambient, mat_shininess]))
         for child in node.children:
-            self.recursive_load(child, vertices, faces, materials, texture_paths, offset, scale, repeated) 
+            self.recursive_load(child, materials_pywave, vertices, faces, materials, texture_paths, offset, scale, repeated) 
         return vertices, faces, materials, texture_paths
 
 
@@ -394,6 +403,7 @@ class YCBRenderer:
         self.colors = colors
         for i in range(len(obj_paths)):
             self.load_object(obj_paths[i], texture_paths[i], scale[i])
+        
             if i == 0:
                 self.instances.append(0)
             else:

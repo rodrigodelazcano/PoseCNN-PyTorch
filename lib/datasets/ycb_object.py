@@ -438,6 +438,7 @@ class YCBObject(data.Dataset, datasets.imdb):
                   'gt_boxes': gt_boxes,
                   'im_info': im_info}
 
+
         if cfg.TRAIN.VERTEX_REG or cfg.TRAIN.VERTEX_REG_DELTA:
             sample['vertex_targets'] = vertex_targets
             sample['vertex_weights'] = vertex_weights

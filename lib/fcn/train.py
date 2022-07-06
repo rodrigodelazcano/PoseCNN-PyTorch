@@ -144,7 +144,7 @@ def train(train_loader, background_loader, network, optimizer, epoch):
                     = network(inputs, labels, meta_data, extents, gt_boxes, poses, points, symmetry)
 
                 loss_label = loss_cross_entropy(out_logsoftmax, out_weight)
-                loss_vertex = cfg.TRAIN.VERTEX_W * smooth_l1_loss(out_vertex, vertex_targets, vertex_weights)
+                loss_vertex = cfg.TRAIN.VERTEX_W *  (out_vertex, vertex_targets, vertex_weights)
                 loss_box = loss_cross_entropy(out_logsoftmax_box, bbox_labels)
                 loss_location = smooth_l1_loss(bbox_pred, bbox_targets, bbox_inside_weights)
                 loss_pose = torch.mean(loss_pose_tensor)
